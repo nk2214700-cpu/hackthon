@@ -83,6 +83,8 @@ def load_sample_transactions():
 
 
 transactions = load_sample_transactions()
+budget = {}
+BUDGET_CATEGORIES = ("Bills", "Food", "Shopping", "Entertainment", "Other")
 
 
 def parse_upload(file_storage):
@@ -193,6 +195,18 @@ def find_anomalies(filtered_rows, all_rows):
     return anomalies
 
 
+def budget_vs_actual(actual_by_category):
+    comparison = {}
+    for category, budget_amount in budget.items():
+        actual = round(float(actual_by_category.get(category, 0)), 2)
+        comparison[category] = {
+            "budget": budget_amount,
+            "actual": actual,
+            "status": "over" if actual > budget_amount else "under",
+        }
+    return comparison
+
+
 @app.route("/")
 def homepage():
     return render_template("index.html")
@@ -215,6 +229,32 @@ def upload():
     return jsonify(transactions)
 
 
+@app.route("/api/budget", methods=["GET", "POST"])
+def budget_endpoint():
+    global budget
+    if request.method == "GET":
+        return jsonify(budget)
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "Request body must be JSON object of category budgets."}), 400
+
+    parsed = {}
+    for category in BUDGET_CATEGORIES:
+        if category not in payload:
+            continue
+        try:
+            amount = float(payload[category])
+        except (TypeError, ValueError):
+            return jsonify({"error": f"Budget for {category} must be a number."}), 400
+        if amount < 0:
+            return jsonify({"error": f"Budget for {category} cannot be negative."}), 400
+        parsed[category] = round(amount, 2)
+
+    budget = parsed
+    return jsonify(budget)
+
+
 @app.route("/api/summary", methods=["GET"])
 def summary():
     month = request.args.get("month")
@@ -223,15 +263,17 @@ def summary():
     except ValueError as exc:
         return jsonify({"error": str(exc)}), 400
 
+    actual = spend_by_category(filtered)
     return jsonify(
         {
             "month": month,
             "transaction_count": len(filtered),
             "total_spend": round(sum(row["amount"] for row in filtered), 2),
-            "spend_by_category": spend_by_category(filtered),
+            "spend_by_category": actual,
             "monthly_trend": monthly_trend(transactions),
             "predicted_next_month": predicted_next_month(transactions),
             "anomalies": find_anomalies(filtered, transactions),
+            "budget_vs_actual": budget_vs_actual(actual),
         }
     )
 

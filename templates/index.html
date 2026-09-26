@@ -176,8 +176,86 @@
 
     .status.error { color: #c0392b; }
 
+    .budget-card {
+      padding: 16px 18px;
+      margin-bottom: 18px;
+    }
+
+    .budget-card h2 {
+      margin: 0 0 12px;
+      font-size: 1rem;
+    }
+
+    .budget-form {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 12px;
+    }
+
+    .budget-field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 120px;
+    }
+
+    .budget-field label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .budget-field input {
+      background: var(--white);
+      border: 1px solid #dbe2ee;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--navy);
+      width: 140px;
+    }
+
+    .budget-row {
+      display: grid;
+      grid-template-columns: 140px 1fr 220px;
+      gap: 12px;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid #edf1f7;
+    }
+
+    .budget-meta {
+      font-size: 0.85rem;
+      color: var(--muted);
+      text-align: right;
+    }
+
+    .budget-track {
+      height: 10px;
+      background: #edf1f7;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    .budget-fill {
+      height: 100%;
+      border-radius: 8px;
+      background: var(--green);
+    }
+
+    .budget-fill.over {
+      background: #c0392b;
+    }
+
+    .budget-status.over { color: #c0392b; font-weight: 650; }
+    .budget-status.under { color: #1a7a45; font-weight: 650; }
+
     @media (max-width: 900px) {
       .cards, .charts { grid-template-columns: 1fr 1fr; }
+      .budget-row { grid-template-columns: 1fr; }
+      .budget-meta { text-align: left; }
     }
     @media (max-width: 640px) {
       .cards, .charts { grid-template-columns: 1fr; }
@@ -202,11 +280,43 @@
     </div>
     <p class="status" id="status">Upload a statement to populate the dashboard.</p>
 
+    <section class="card budget-card">
+      <h2>Set Budget</h2>
+      <form class="budget-form" id="budgetForm">
+        <div class="budget-field">
+          <label for="budgetBills">Bills</label>
+          <input id="budgetBills" type="number" min="0" step="0.01" data-category="Bills" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetFood">Food</label>
+          <input id="budgetFood" type="number" min="0" step="0.01" data-category="Food" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetShopping">Shopping</label>
+          <input id="budgetShopping" type="number" min="0" step="0.01" data-category="Shopping" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetEntertainment">Entertainment</label>
+          <input id="budgetEntertainment" type="number" min="0" step="0.01" data-category="Entertainment" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetOther">Other</label>
+          <input id="budgetOther" type="number" min="0" step="0.01" data-category="Other" />
+        </div>
+        <button class="btn" id="saveBudgetBtn" type="submit">Save Budget</button>
+      </form>
+    </section>
+
     <section class="cards">
       <article class="card"><div class="label">Total Spend</div><div class="value" id="totalSpend">—</div></article>
       <article class="card"><div class="label">Top Category</div><div class="value" id="topCategory">—</div></article>
       <article class="card"><div class="label">Predicted Next Month Spend</div><div class="value" id="predictedSpend">—</div></article>
       <article class="card"><div class="label">Number of Flagged Anomalies</div><div class="value" id="anomalyCount">—</div></article>
+    </section>
+
+    <section class="card budget-card" id="budgetVsActualCard">
+      <h2>Budget vs Actual</h2>
+      <div id="budgetVsActual">Set a budget to compare against actual spend.</div>
     </section>
 
     <section class="charts">
@@ -436,6 +546,43 @@
       renderCategoryChart(summary);
       renderTrendChart(summary);
       renderTable(visibleTransactions(), summary.anomalies);
+      renderBudgetVsActual(summary.budget_vs_actual);
+    }
+
+    function fillBudgetInputs(stored) {
+      document.querySelectorAll("#budgetForm input[data-category]").forEach((input) => {
+        const value = stored && stored[input.dataset.category];
+        input.value = value == null || value === "" ? "" : value;
+      });
+    }
+
+    function renderBudgetVsActual(comparison) {
+      const root = document.getElementById("budgetVsActual");
+      const entries = Object.entries(comparison || {});
+      if (!entries.length) {
+        root.textContent = "Set a budget to compare against actual spend.";
+        return;
+      }
+      root.innerHTML = entries.map(([category, row]) => {
+        const budgetAmt = Number(row.budget);
+        const actualAmt = Number(row.actual);
+        const over = row.status === "over";
+        const pct = budgetAmt > 0 ? Math.min((actualAmt / budgetAmt) * 100, 100) : 0;
+        return `<div class="budget-row">
+          <div>${category}</div>
+          <div class="budget-track"><div class="budget-fill${over ? " over" : ""}" style="width:${pct}%"></div></div>
+          <div class="budget-meta">
+            Actual ${money(actualAmt)} / Budget ${money(budgetAmt)}
+            <span class="budget-status ${over ? "over" : "under"}">${over ? "Over" : "Under"}</span>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    async function loadBudget() {
+      const res = await fetch("/api/budget");
+      if (!res.ok) return;
+      fillBudgetInputs(await res.json());
     }
 
     document.getElementById("uploadForm").addEventListener("submit", async (e) => {
@@ -464,6 +611,34 @@
         btn.disabled = false;
       }
     });
+
+    document.getElementById("budgetForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const payload = {};
+      document.querySelectorAll("#budgetForm input[data-category]").forEach((input) => {
+        if (input.value === "") return;
+        payload[input.dataset.category] = Number(input.value);
+      });
+      const btn = document.getElementById("saveBudgetBtn");
+      btn.disabled = true;
+      try {
+        const res = await fetch("/api/budget", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`Budget save failed (${res.status})`);
+        fillBudgetInputs(await res.json());
+        await fetchSummary();
+        setStatus("Budget saved.");
+      } catch (err) {
+        setStatus(err.message || "Could not save budget.", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    loadBudget();
 
     monthSelect.addEventListener("change", async () => {
       try {
