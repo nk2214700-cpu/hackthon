@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Expense Tracker</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <style>
+    :root {
+      --navy: #1a2744;
+      --navy-soft: #243352;
+      --white: #ffffff;
+      --green: #7fd99a;
+      --muted: #6b7a90;
+      --bg: #f4f6fa;
+      --card-shadow: 0 8px 24px rgba(26, 39, 68, 0.08);
+      --anomaly: #e67a3a;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--navy);
+    }
+
+    .navbar {
+      background: var(--navy);
+      color: var(--white);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 28px;
+      flex-wrap: wrap;
+    }
+
+    .navbar h1 {
+      margin: 0;
+      font-size: 1.15rem;
+      font-weight: 650;
+      letter-spacing: 0.2px;
+    }
+
+    .upload-form {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .upload-form input[type="file"] {
+      color: #d7deea;
+      font-size: 0.85rem;
+      max-width: 240px;
+    }
+
+    .btn {
+      background: var(--green);
+      color: var(--navy);
+      border: none;
+      border-radius: 8px;
+      padding: 8px 14px;
+      font-weight: 650;
+      cursor: pointer;
+    }
+
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+
+    .container {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 22px 20px 40px;
+    }
+
+    .filter-row {
+      margin-bottom: 18px;
+    }
+
+    .filter-row label {
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-right: 8px;
+      font-weight: 600;
+    }
+
+    select {
+      background: var(--white);
+      border: 1px solid #dbe2ee;
+      border-radius: 8px;
+      padding: 8px 12px;
+      color: var(--navy);
+      min-width: 180px;
+    }
+
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .card, .chart-card, .table-card {
+      background: var(--white);
+      border-radius: 14px;
+      box-shadow: var(--card-shadow);
+    }
+
+    .card {
+      padding: 16px 18px;
+    }
+
+    .card .label {
+      font-size: 0.78rem;
+      color: var(--muted);
+      font-weight: 650;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+    }
+
+    .card .value {
+      margin-top: 8px;
+      font-size: 1.35rem;
+      font-weight: 700;
+    }
+
+    .charts {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+
+    .chart-card {
+      padding: 16px 18px 10px;
+    }
+
+    .chart-card h2, .table-card h2 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .table-card { padding: 16px 18px 8px; overflow-x: auto; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      text-align: left;
+      padding: 10px 8px;
+      border-bottom: 1px solid #edf1f7;
+    }
+
+    th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
+
+    tr.anomaly td {
+      color: var(--anomaly);
+      font-weight: 650;
+    }
+
+    .status {
+      margin: 8px 0 16px;
+      min-height: 1.2em;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .status.error { color: #c0392b; }
+
+    @media (max-width: 900px) {
+      .cards, .charts { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 640px) {
+      .cards, .charts { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <nav class="navbar">
+    <h1>Smart Expense Tracker</h1>
+    <form class="upload-form" id="uploadForm">
+      <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
+      <button class="btn" id="uploadBtn" type="submit">Upload Statement (CSV)</button>
+    </form>
+  </nav>
+
+  <main class="container">
+    <div class="filter-row">
+      <label for="monthSelect">Month</label>
+      <select id="monthSelect">
+        <option value="">All Months</option>
+      </select>
+    </div>
+    <p class="status" id="status">Upload a statement to populate the dashboard.</p>
+
+    <section class="cards">
+      <article class="card"><div class="label">Total Spend</div><div class="value" id="totalSpend">—</div></article>
+      <article class="card"><div class="label">Top Category</div><div class="value" id="topCategory">—</div></article>
+      <article class="card"><div class="label">Predicted Next Month Spend</div><div class="value" id="predictedSpend">—</div></article>
+      <article class="card"><div class="label">Number of Flagged Anomalies</div><div class="value" id="anomalyCount">—</div></article>
+    </section>
+
+    <section class="charts">
+      <article class="chart-card">
+        <h2>Spend by Category</h2>
+        <canvas id="categoryChart"></canvas>
+      </article>
+      <article class="chart-card">
+        <h2>Spend Trend - Last 3 Months</h2>
+        <canvas id="trendChart"></canvas>
+      </article>
+    </section>
+
+    <section class="table-card">
+      <h2>Transactions</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Date</th>
+            <th>Description</th>
+            <th>Amount</th>
+            <th>Category</th>
+          </tr>
+        </thead>
+        <tbody id="txnBody">
+          <tr><td colspan="4">No transactions yet.</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <script>
+    const money = (n) => {
+      const v = Number(n);
+      if (!Number.isFinite(v)) return "—";
+      return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
+    };
+
+    const statusEl = document.getElementById("status");
+    const monthSelect = document.getElementById("monthSelect");
+    const txnBody = document.getElementById("txnBody");
+    let allTransactions = [];
+    let categoryChart;
+    let trendChart;
+
+    function setStatus(msg, isError = false) {
+      statusEl.textContent = msg;
+      statusEl.classList.toggle("error", isError);
+    }
+
+    function asArray(data) {
+      if (Array.isArray(data)) return data;
+      if (!data || typeof data !== "object") return [];
+      return data.transactions || data.data || data.rows || [];
+    }
+
+    function isAnomaly(row) {
+      return Boolean(
+        row.is_anomaly || row.anomaly || row.flagged || row.is_flagged ||
+        row.anomalous || (row.flags && row.flags.anomaly)
+      );
+    }
+
+    function monthKey(dateStr) {
+      if (!dateStr) return "";
+      const s = String(dateStr);
+      const m = s.match(/^(\d{4}-\d{2})/);
+      if (m) return m[1];
+      const d = new Date(s);
+      if (Number.isNaN(d.getTime())) return "";
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+    }
+
+    function populateMonths(rows) {
+      const months = [...new Set(rows.map((r) => monthKey(r.date || r.Date)).filter(Boolean))].sort();
+      const current = monthSelect.value;
+      monthSelect.innerHTML = '<option value="">All Months</option>';
+      months.forEach((m) => {
+        const opt = document.createElement("option");
+        opt.value = m;
+        opt.textContent = m;
+        monthSelect.appendChild(opt);
+      });
+      if (months.includes(current)) monthSelect.value = current;
+    }
+
+    function objectToPairs(obj) {
+      if (!obj) return [];
+      if (Array.isArray(obj)) {
+        return obj.map((item) => {
+          if (Array.isArray(item)) return [item[0], Number(item[1])];
+          return [
+            item.category || item.month || item.label || item.name,
+            Number(item.amount || item.spend || item.total || item.value)
+          ];
+        });
+      }
+      return Object.entries(obj).map(([k, v]) => [k, Number(v)]);
+    }
+
+    function renderCards(summary) {
+      const byCat = objectToPairs(summary.spend_by_category);
+      byCat.sort((a, b) => b[1] - a[1]);
+      const top = byCat[0] ? byCat[0][0] : "—";
+      const anomalies = summary.anomalies;
+      const count = Array.isArray(anomalies) ? anomalies.length : Number(anomalies ?? summary.anomaly_count ?? 0);
+
+      document.getElementById("totalSpend").textContent = money(summary.total_spend);
+      document.getElementById("topCategory").textContent = top;
+      document.getElementById("predictedSpend").textContent = money(summary.predicted_next_month);
+      document.getElementById("anomalyCount").textContent = Number.isFinite(count) ? String(count) : "—";
+    }
+
+    function renderTable(rows) {
+      if (!rows.length) {
+        txnBody.innerHTML = '<tr><td colspan="4">No transactions yet.</td></tr>';
+        return;
+      }
+      txnBody.innerHTML = rows.map((r) => {
+        const date = r.date || r.Date || "";
+        const desc = r.description || r.Description || r.merchant || "";
+        const amount = r.amount ?? r.Amount ?? "";
+        const cat = r.category || r.Category || "";
+        const cls = isAnomaly(r) ? ' class="anomaly"' : "";
+        return `<tr${cls}><td>${date}</td><td>${desc}</td><td>${money(amount)}</td><td>${cat}</td></tr>`;
+      }).join("");
+    }
+
+    function visibleTransactions() {
+      const month = monthSelect.value;
+      if (!month) return allTransactions;
+      return allTransactions.filter((r) => monthKey(r.date || r.Date) === month);
+    }
+
+    function renderCategoryChart(summary) {
+      const pairs = objectToPairs(summary.spend_by_category);
+      const labels = pairs.map((p) => p[0]);
+      const values = pairs.map((p) => p[1]);
+      const ctx = document.getElementById("categoryChart");
+      if (categoryChart) categoryChart.destroy();
+      categoryChart = new Chart(ctx, {
+        type: "bar",
+        data: {
+          labels,
+          datasets: [{
+            label: "Spend",
+            data: values,
+            backgroundColor: "#1a2744",
+            borderRadius: 6
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    function renderTrendChart(summary) {
+      const pairs = objectToPairs(summary.monthly_trend);
+      pairs.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
+      const last3 = pairs.slice(-3);
+      const labels = last3.map((p) => p[0]);
+      const actual = last3.map((p) => p[1]);
+      const predicted = Number(summary.predicted_next_month);
+      const nextLabel = summary.predicted_month || "Next month";
+
+      if (Number.isFinite(predicted) && last3.length) {
+        labels.push(nextLabel);
+      }
+
+      const actualSeries = actual.concat(Number.isFinite(predicted) && last3.length ? [null] : []);
+      const dashedSeries = last3.length && Number.isFinite(predicted)
+        ? Array(Math.max(last3.length - 1, 0)).fill(null).concat([actual[actual.length - 1], predicted])
+        : [];
+
+      const ctx = document.getElementById("trendChart");
+      if (trendChart) trendChart.destroy();
+      trendChart = new Chart(ctx, {
+        type: "line",
+        data: {
+          labels,
+          datasets: [
+            {
+              label: "Actual",
+              data: actualSeries,
+              borderColor: "#1a2744",
+              backgroundColor: "rgba(26,39,68,0.08)",
+              tension: 0.25,
+              spanGaps: false,
+              pointRadius: 4
+            },
+            {
+              label: "Predicted",
+              data: dashedSeries,
+              borderColor: "#7fd99a",
+              borderDash: [6, 4],
+              tension: 0.25,
+              pointRadius: 4,
+              pointBackgroundColor: "#7fd99a"
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: true } },
+          scales: { y: { beginAtZero: true } }
+        }
+      });
+    }
+
+    async function fetchSummary() {
+      const month = monthSelect.value;
+      const url = month ? `/api/summary?month=${encodeURIComponent(month)}` : "/api/summary";
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`Summary failed (${res.status})`);
+      const summary = await res.json();
+      renderCards(summary);
+      renderCategoryChart(summary);
+      renderTrendChart(summary);
+      renderTable(visibleTransactions());
+    }
+
+    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const file = document.getElementById("fileInput").files[0];
+      if (!file) {
+        setStatus("Choose a CSV or Excel file first.", true);
+        return;
+      }
+      const btn = document.getElementById("uploadBtn");
+      btn.disabled = true;
+      setStatus("Uploading statement…");
+      try {
+        const form = new FormData();
+        form.append("file", file);
+        const res = await fetch("/api/upload", { method: "POST", body: form });
+        if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+        const payload = await res.json();
+        allTransactions = asArray(payload);
+        populateMonths(allTransactions);
+        await fetchSummary();
+        setStatus(`Loaded ${allTransactions.length} transactions.`);
+      } catch (err) {
+        setStatus(err.message || "Upload failed.", true);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+
+    monthSelect.addEventListener("change", async () => {
+      try {
+        setStatus("Updating dashboard…");
+        await fetchSummary();
+        setStatus("");
+      } catch (err) {
+        setStatus(err.message || "Could not refresh summary.", true);
+      }
+    });
+  </script>
+</body>
+</html>
