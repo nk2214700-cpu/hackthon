@@ -267,7 +267,7 @@
     <h1>Smart Expense Tracker</h1>
     <form class="upload-form" id="uploadForm">
       <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
-      <button class="btn" id="uploadBtn" type="submit">Upload Statement (CSV)</button>
+      <button class="btn" id="uploadBtn" type="submit">Upload Statement (CSV/Excel)</button>
     </form>
   </nav>
 
@@ -325,7 +325,7 @@
         <canvas id="categoryChart"></canvas>
       </article>
       <article class="chart-card">
-        <h2>Spend Trend - Last 3 Months</h2>
+        <h2 id="trendTitle">Spend Trend</h2>
         <canvas id="trendChart"></canvas>
       </article>
     </section>
@@ -486,19 +486,26 @@
     function renderTrendChart(summary) {
       const pairs = objectToPairs(summary.monthly_trend);
       pairs.sort((a, b) => String(a[0]).localeCompare(String(b[0])));
-      const last3 = pairs.slice(-3);
-      const labels = last3.map((p) => p[0]);
-      const actual = last3.map((p) => p[1]);
-      const predicted = Object.values(summary.predicted_next_month || {}).reduce((s, v) => s + (Number(v) || 0), 0);
-      const nextLabel = summary.predicted_month || "Next month";
-
-      if (Number.isFinite(predicted) && last3.length) {
-        labels.push(nextLabel);
+      const shown = pairs.slice(-Math.min(pairs.length, 3));
+      const n = shown.length;
+      const titleEl = document.getElementById("trendTitle");
+      if (titleEl) {
+        if (n <= 0) titleEl.textContent = "Spend Trend";
+        else if (n === 1) titleEl.textContent = "Spend Trend - Last Month";
+        else titleEl.textContent = `Spend Trend - Last ${n} Months`;
       }
 
-      const actualSeries = actual.concat(Number.isFinite(predicted) && last3.length ? [null] : []);
-      const dashedSeries = last3.length && Number.isFinite(predicted)
-        ? Array(Math.max(last3.length - 1, 0)).fill(null).concat([actual[actual.length - 1], predicted])
+      const labels = shown.map((p) => p[0]);
+      const actual = shown.map((p) => p[1]);
+      const predicted = Object.values(summary.predicted_next_month || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+      const nextLabel = summary.predicted_month || "Next month";
+      const hasPrediction = Number.isFinite(predicted) && n > 0;
+
+      if (hasPrediction) labels.push(nextLabel);
+
+      const actualSeries = actual.concat(hasPrediction ? [null] : []);
+      const dashedSeries = hasPrediction
+        ? Array(Math.max(n - 1, 0)).fill(null).concat([actual[actual.length - 1], predicted])
         : [];
 
       const ctx = document.getElementById("trendChart");
@@ -515,7 +522,12 @@
               backgroundColor: "rgba(26,39,68,0.08)",
               tension: 0.25,
               spanGaps: false,
-              pointRadius: 4
+              showLine: n > 1,
+              pointRadius: 5,
+              pointHoverRadius: 7,
+              pointHitRadius: 10,
+              pointBackgroundColor: "#1a2744",
+              pointBorderColor: "#1a2744"
             },
             {
               label: "Predicted",
@@ -523,7 +535,8 @@
               borderColor: "#7fd99a",
               borderDash: [6, 4],
               tension: 0.25,
-              pointRadius: 4,
+              pointRadius: 5,
+              pointHoverRadius: 7,
               pointBackgroundColor: "#7fd99a"
             }
           ]
