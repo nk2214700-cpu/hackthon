@@ -161,8 +161,9 @@
 
     th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
 
-    tr.anomaly td {
-      color: var(--anomaly);
+    table tbody tr.anomaly td {
+      background-color: #ffe5e5;
+      color: #c0392b;
       font-weight: 650;
     }
 
@@ -241,7 +242,7 @@
     const money = (n) => {
       const v = Number(n);
       if (!Number.isFinite(v)) return "—";
-      return v.toLocaleString(undefined, { style: "currency", currency: "USD" });
+      return v.toLocaleString("en-IN", { style: "currency", currency: "INR" });
     };
 
     const statusEl = document.getElementById("status");
@@ -262,11 +263,17 @@
       return data.transactions || data.data || data.rows || [];
     }
 
-    function isAnomaly(row) {
-      return Boolean(
-        row.is_anomaly || row.anomaly || row.flagged || row.is_flagged ||
-        row.anomalous || (row.flags && row.flags.anomaly)
-      );
+    function isAnomaly(row, anomalies) {
+      if (!Array.isArray(anomalies) || !anomalies.length) return false;
+      const rDate = String(row.date || row.Date || "").trim();
+      const rDesc = String(row.description || row.Description || row.merchant || "").trim();
+      const rAmount = Number(row.amount ?? row.Amount ?? 0);
+      return anomalies.some((a) => {
+        const aDate = String(a.date || a.Date || "").trim();
+        const aDesc = String(a.description || a.Description || "").trim();
+        const aAmount = Number(a.amount ?? a.Amount ?? 0);
+        return aDate === rDate && aDesc === rDesc && Math.abs(aAmount - rAmount) < 0.01;
+      });
     }
 
     function monthKey(dateStr) {
@@ -315,11 +322,12 @@
 
       document.getElementById("totalSpend").textContent = money(summary.total_spend);
       document.getElementById("topCategory").textContent = top;
-      document.getElementById("predictedSpend").textContent = money(summary.predicted_next_month);
+      const predictedTotal = Object.values(summary.predicted_next_month || {}).reduce((s, v) => s + (Number(v) || 0), 0);
+      document.getElementById("predictedSpend").textContent = money(predictedTotal);
       document.getElementById("anomalyCount").textContent = Number.isFinite(count) ? String(count) : "—";
     }
 
-    function renderTable(rows) {
+    function renderTable(rows, anomalies) {
       if (!rows.length) {
         txnBody.innerHTML = '<tr><td colspan="4">No transactions yet.</td></tr>';
         return;
@@ -329,7 +337,7 @@
         const desc = r.description || r.Description || r.merchant || "";
         const amount = r.amount ?? r.Amount ?? "";
         const cat = r.category || r.Category || "";
-        const cls = isAnomaly(r) ? ' class="anomaly"' : "";
+        const cls = isAnomaly(r, anomalies) ? ' class="anomaly"' : "";
         return `<tr${cls}><td>${date}</td><td>${desc}</td><td>${money(amount)}</td><td>${cat}</td></tr>`;
       }).join("");
     }
@@ -371,7 +379,7 @@
       const last3 = pairs.slice(-3);
       const labels = last3.map((p) => p[0]);
       const actual = last3.map((p) => p[1]);
-      const predicted = Number(summary.predicted_next_month);
+      const predicted = Object.values(summary.predicted_next_month || {}).reduce((s, v) => s + (Number(v) || 0), 0);
       const nextLabel = summary.predicted_month || "Next month";
 
       if (Number.isFinite(predicted) && last3.length) {
@@ -427,7 +435,7 @@
       renderCards(summary);
       renderCategoryChart(summary);
       renderTrendChart(summary);
-      renderTable(visibleTransactions());
+      renderTable(visibleTransactions(), summary.anomalies);
     }
 
     document.getElementById("uploadForm").addEventListener("submit", async (e) => {
