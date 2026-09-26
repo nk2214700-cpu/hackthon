@@ -7,40 +7,66 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
   <style>
     :root {
-      --navy: #1a2744;
-      --navy-soft: #243352;
-      --white: #ffffff;
+      --navy: #e8eef8;
+      --navy-soft: #1c2744;
+      --white: #f4f7fb;
       --green: #7fd99a;
-      --muted: #6b7a90;
-      --bg: #f4f6fa;
-      --card-shadow: 0 8px 24px rgba(26, 39, 68, 0.08);
-      --anomaly: #e67a3a;
+      --muted: #8b9bb4;
+      --bg: #0a0e1a;
+      --card-shadow: 0 12px 40px rgba(0, 0, 0, 0.35);
+      --anomaly: #ff6b6b;
+      --over-budget: #ef4444;
+      --cat-bills: #127a84;
+      --cat-food: #1a8a94;
+      --cat-shopping: #2dd4c4;
+      --cat-entertainment: #7fe8dc;
+      --cat-other: #c5f5ee;
+      --accent: #7dd3c7;
     }
 
     * { box-sizing: border-box; }
 
+    html, body { min-height: 100%; }
+
     body {
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: var(--bg);
-      color: var(--navy);
+      color: var(--white);
+      background:
+        radial-gradient(1200px 600px at 10% -10%, rgba(56, 89, 160, 0.22), transparent 55%),
+        linear-gradient(145deg, #0a0e1a 0%, #111a2e 52%, #0c1424 100%);
+      background-attachment: fixed;
     }
 
     .navbar {
-      background: var(--navy);
+      background: transparent;
       color: var(--white);
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 16px;
-      padding: 14px 28px;
+      padding: 22px 32px 8px;
       flex-wrap: wrap;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+    }
+
+    .brand-logo {
+      height: 38px;
+      width: auto;
+      display: block;
+      flex-shrink: 0;
     }
 
     .navbar h1 {
       margin: 0;
-      font-size: 1.15rem;
-      font-weight: 650;
+      font-size: 1.2rem;
+      font-weight: 700;
       letter-spacing: 0.2px;
     }
 
@@ -49,23 +75,33 @@
       align-items: center;
       gap: 10px;
       flex-wrap: wrap;
+      position: relative;
     }
 
     .upload-form input[type="file"] {
-      color: #d7deea;
-      font-size: 0.85rem;
-      max-width: 240px;
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
     }
 
     .btn {
-      background: var(--green);
-      color: var(--navy);
-      border: none;
-      border-radius: 8px;
-      padding: 8px 14px;
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid rgba(125, 211, 199, 0.55);
+      border-radius: 12px;
+      padding: 9px 16px;
       font-weight: 650;
       cursor: pointer;
+      box-shadow: 0 0 18px rgba(125, 211, 199, 0.08);
     }
+
+    .btn:hover { background: rgba(125, 211, 199, 0.12); }
 
     .btn:disabled {
       opacity: 0.6;
@@ -73,79 +109,110 @@
     }
 
     .container {
-      max-width: 1180px;
+      max-width: 1240px;
       margin: 0 auto;
-      padding: 22px 20px 40px;
+      padding: 12px 24px 48px;
+      display: grid;
+      grid-template-columns: 1.15fr 1fr 1fr;
+      gap: 16px;
+    }
+
+    .filter-row,
+    .status,
+    .cards,
+    .table-card,
+    .budget-card:not(#budgetVsActualCard) {
+      grid-column: 1 / -1;
     }
 
     .filter-row {
-      margin-bottom: 18px;
+      margin-bottom: 0;
     }
 
     .filter-row label {
       font-size: 0.85rem;
       color: var(--muted);
-      margin-right: 8px;
+      margin-right: 10px;
       font-weight: 600;
     }
 
     select {
-      background: var(--white);
-      border: 1px solid #dbe2ee;
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: var(--navy);
-      min-width: 180px;
+      background: rgba(16, 24, 42, 0.9);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 12px;
+      padding: 10px 14px;
+      color: var(--white);
+      min-width: 200px;
+    }
+
+    select option {
+      background: #111a2e;
+      color: var(--white);
     }
 
     .cards {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
       gap: 14px;
-      margin-bottom: 18px;
+      margin-bottom: 0;
     }
 
     .card, .chart-card, .table-card {
-      background: var(--white);
-      border-radius: 14px;
+      background: rgba(18, 28, 50, 0.62);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
       box-shadow: var(--card-shadow);
+      backdrop-filter: blur(16px);
     }
 
     .card {
-      padding: 16px 18px;
+      padding: 18px 20px;
     }
 
     .card .label {
       font-size: 0.78rem;
       color: var(--muted);
       font-weight: 650;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.3px;
     }
 
     .card .value {
-      margin-top: 8px;
-      font-size: 1.35rem;
-      font-weight: 700;
+      margin-top: 10px;
+      font-size: 1.55rem;
+      font-weight: 750;
+      color: #f7fafc;
+      letter-spacing: -0.3px;
+    }
+
+    #anomalyCount.critical {
+      color: #ff6b6b;
     }
 
     .charts {
+      grid-column: 2 / -1;
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
-      margin-bottom: 18px;
+      margin-bottom: 0;
+    }
+
+    #budgetVsActualCard {
+      grid-column: 1;
+      margin-bottom: 0;
     }
 
     .chart-card {
-      padding: 16px 18px 10px;
+      padding: 16px 18px 14px;
     }
 
-    .chart-card h2, .table-card h2 {
-      margin: 0 0 10px;
-      font-size: 1rem;
+    .chart-card h2, .table-card h2, .budget-card h2 {
+      margin: 0 0 12px;
+      font-size: 0.95rem;
+      font-weight: 650;
+      color: #d7e0ee;
     }
 
-    .table-card { padding: 16px 18px 8px; overflow-x: auto; }
+    .table-card { padding: 18px 18px 10px; overflow-x: auto; }
 
     table {
       width: 100%;
@@ -155,35 +222,32 @@
 
     th, td {
       text-align: left;
-      padding: 10px 8px;
-      border-bottom: 1px solid #edf1f7;
+      padding: 12px 10px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+      color: #dce4f0;
     }
 
-    th { color: var(--muted); font-size: 0.78rem; text-transform: uppercase; }
+    th { color: var(--muted); font-size: 0.75rem; text-transform: uppercase; letter-spacing: 0.4px; }
 
     table tbody tr.anomaly td {
-      background-color: #ffe5e5;
-      color: #c0392b;
+      background-color: rgba(255, 80, 80, 0.14);
+      color: #ffb4b4;
       font-weight: 650;
+      box-shadow: inset 0 0 0 1px rgba(255, 90, 90, 0.28);
     }
 
     .status {
-      margin: 8px 0 16px;
+      margin: 0;
       min-height: 1.2em;
       color: var(--muted);
       font-size: 0.9rem;
     }
 
-    .status.error { color: #c0392b; }
+    .status.error { color: #ff8a8a; }
 
     .budget-card {
       padding: 16px 18px;
-      margin-bottom: 18px;
-    }
-
-    .budget-card h2 {
-      margin: 0 0 12px;
-      font-size: 1rem;
+      margin-bottom: 0;
     }
 
     .budget-form {
@@ -198,64 +262,95 @@
       flex-direction: column;
       gap: 6px;
       min-width: 120px;
+      flex: 1;
     }
 
     .budget-field label {
       font-size: 0.78rem;
-      color: var(--muted);
+      color: #c5d0e0;
       font-weight: 650;
-      text-transform: uppercase;
-      letter-spacing: 0.4px;
+      letter-spacing: 0.2px;
     }
 
     .budget-field input {
-      background: var(--white);
-      border: 1px solid #dbe2ee;
-      border-radius: 8px;
-      padding: 8px 12px;
-      color: var(--navy);
-      width: 140px;
+      background: rgba(10, 16, 32, 0.75);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 10px;
+      padding: 9px 12px;
+      color: var(--white);
+      width: 100%;
+      min-width: 110px;
     }
+
+    .budget-field input:focus {
+      outline: 1px solid rgba(125, 211, 199, 0.45);
+    }
+
+    label[for="budgetBills"] { color: var(--cat-bills); }
+    label[for="budgetFood"] { color: var(--cat-food); }
+    label[for="budgetShopping"] { color: var(--cat-shopping); }
+    label[for="budgetEntertainment"] { color: var(--cat-entertainment); }
+    label[for="budgetOther"] { color: var(--cat-other); }
 
     .budget-row {
       display: grid;
-      grid-template-columns: 140px 1fr 220px;
+      grid-template-columns: 150px 1fr;
       gap: 12px;
       align-items: center;
-      padding: 10px 0;
-      border-bottom: 1px solid #edf1f7;
+      padding: 9px 0;
+      border-bottom: none;
     }
 
     .budget-meta {
-      font-size: 0.85rem;
-      color: var(--muted);
+      position: absolute;
+      right: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 0.75rem;
+      color: #e8eef8;
       text-align: right;
+      text-shadow: 0 1px 8px rgba(0, 0, 0, 0.55);
+      white-space: nowrap;
     }
 
     .budget-track {
-      height: 10px;
-      background: #edf1f7;
+      position: relative;
+      height: 22px;
+      background: rgba(255, 255, 255, 0.06);
       border-radius: 8px;
       overflow: hidden;
     }
 
     .budget-fill {
+      position: absolute;
+      left: 0;
+      top: 0;
       height: 100%;
       border-radius: 8px;
-      background: var(--green);
+      background: var(--cat-color, var(--cat-other));
     }
 
-    .budget-fill.over {
-      background: #c0392b;
+    .budget-overflow {
+      position: absolute;
+      top: 0;
+      height: 100%;
+      background: var(--over-budget);
+      border-radius: 0 8px 8px 0;
+      box-shadow: inset 0 0 10px rgba(255, 120, 60, 0.35);
     }
 
-    .budget-status.over { color: #c0392b; font-weight: 650; }
-    .budget-status.under { color: #1a7a45; font-weight: 650; }
+    .cat-accent { font-weight: 650; }
 
+    .budget-status { display: none; }
+
+    @media (max-width: 1100px) {
+      .container { grid-template-columns: 1fr; }
+      #budgetVsActualCard, .charts { grid-column: 1 / -1; }
+    }
     @media (max-width: 900px) {
       .cards, .charts { grid-template-columns: 1fr 1fr; }
       .budget-row { grid-template-columns: 1fr; }
-      .budget-meta { text-align: left; }
+      .budget-meta { position: static; transform: none; text-align: left; margin-top: 4px; }
     }
     @media (max-width: 640px) {
       .cards, .charts { grid-template-columns: 1fr; }
@@ -264,54 +359,57 @@
 </head>
 <body>
   <nav class="navbar">
-    <h1>Smart Expense Tracker</h1>
+    <div class="brand">
+      <img class="brand-logo" src="{{ url_for('static', filename='logo.png') }}" alt="" />
+      <h1>Smart Expense Tracker</h1>
+    </div>
     <form class="upload-form" id="uploadForm">
       <input id="fileInput" type="file" accept=".csv,.xlsx,.xls" />
-      <button class="btn" id="uploadBtn" type="submit">Upload Statement (CSV/Excel)</button>
+      <button class="btn" id="uploadBtn" type="button">Upload Statement (CSV/Excel)</button>
     </form>
   </nav>
 
   <main class="container">
     <div class="filter-row">
-      <label for="monthSelect">Month</label>
+      <label for="monthSelect">Month Filter</label>
       <select id="monthSelect">
         <option value="">All Months</option>
       </select>
     </div>
     <p class="status" id="status">Upload a statement to populate the dashboard.</p>
 
-    <section class="card budget-card">
-      <h2>Set Budget</h2>
-      <form class="budget-form" id="budgetForm">
-        <div class="budget-field">
-          <label for="budgetBills">Bills</label>
-          <input id="budgetBills" type="number" min="0" step="0.01" data-category="Bills" />
-        </div>
-        <div class="budget-field">
-          <label for="budgetFood">Food</label>
-          <input id="budgetFood" type="number" min="0" step="0.01" data-category="Food" />
-        </div>
-        <div class="budget-field">
-          <label for="budgetShopping">Shopping</label>
-          <input id="budgetShopping" type="number" min="0" step="0.01" data-category="Shopping" />
-        </div>
-        <div class="budget-field">
-          <label for="budgetEntertainment">Entertainment</label>
-          <input id="budgetEntertainment" type="number" min="0" step="0.01" data-category="Entertainment" />
-        </div>
-        <div class="budget-field">
-          <label for="budgetOther">Other</label>
-          <input id="budgetOther" type="number" min="0" step="0.01" data-category="Other" />
-        </div>
-        <button class="btn" id="saveBudgetBtn" type="submit">Save Budget</button>
-      </form>
-    </section>
-
     <section class="cards">
       <article class="card"><div class="label">Total Spend</div><div class="value" id="totalSpend">—</div></article>
       <article class="card"><div class="label">Top Category</div><div class="value" id="topCategory">—</div></article>
       <article class="card"><div class="label">Predicted Next Month Spend</div><div class="value" id="predictedSpend">—</div></article>
       <article class="card"><div class="label">Number of Flagged Anomalies</div><div class="value" id="anomalyCount">—</div></article>
+    </section>
+
+    <section class="card budget-card">
+      <h2>Set Budget</h2>
+      <form class="budget-form" id="budgetForm">
+        <div class="budget-field">
+          <label for="budgetBills">🧾 Bills</label>
+          <input id="budgetBills" type="number" min="0" step="0.01" data-category="Bills" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetFood">🍔 Food</label>
+          <input id="budgetFood" type="number" min="0" step="0.01" data-category="Food" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetShopping">🛍️ Shopping</label>
+          <input id="budgetShopping" type="number" min="0" step="0.01" data-category="Shopping" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetEntertainment">🎬 Entertainment</label>
+          <input id="budgetEntertainment" type="number" min="0" step="0.01" data-category="Entertainment" />
+        </div>
+        <div class="budget-field">
+          <label for="budgetOther">📦 Other</label>
+          <input id="budgetOther" type="number" min="0" step="0.01" data-category="Other" />
+        </div>
+        <button class="btn" id="saveBudgetBtn" type="submit">Save Budget</button>
+      </form>
     </section>
 
     <section class="card budget-card" id="budgetVsActualCard">
@@ -349,6 +447,23 @@
   </main>
 
   <script>
+    const CATEGORY_STYLE = {
+      Bills: { emoji: "🧾", color: "#127a84" },
+      Food: { emoji: "🍔", color: "#1a8a94" },
+      Shopping: { emoji: "🛍️", color: "#2dd4c4" },
+      Entertainment: { emoji: "🎬", color: "#7fe8dc" },
+      Other: { emoji: "📦", color: "#c5f5ee" }
+    };
+    const categoryLabel = (name) => {
+      const style = CATEGORY_STYLE[name];
+      return style ? `${style.emoji} ${name}` : name;
+    };
+    const categoryColor = (name) => (CATEGORY_STYLE[name] && CATEGORY_STYLE[name].color) || "#c5f5ee";
+    const categoryMarkup = (name) =>
+      `<span class="cat-accent" style="color:${categoryColor(name)}">${categoryLabel(name)}</span>`;
+    const chartTick = "#9aa8c0";
+    const chartGrid = "rgba(255,255,255,0.07)";
+
     const money = (n) => {
       const v = Number(n);
       if (!Number.isFinite(v)) return "—";
@@ -431,10 +546,19 @@
       const count = Array.isArray(anomalies) ? anomalies.length : Number(anomalies ?? summary.anomaly_count ?? 0);
 
       document.getElementById("totalSpend").textContent = money(summary.total_spend);
-      document.getElementById("topCategory").textContent = top;
+      const topEl = document.getElementById("topCategory");
+      if (top === "—") topEl.textContent = top;
+      else topEl.innerHTML = categoryMarkup(top);
       const predictedTotal = Object.values(summary.predicted_next_month || {}).reduce((s, v) => s + (Number(v) || 0), 0);
       document.getElementById("predictedSpend").textContent = money(predictedTotal);
-      document.getElementById("anomalyCount").textContent = Number.isFinite(count) ? String(count) : "—";
+      const anomalyEl = document.getElementById("anomalyCount");
+      if (Number.isFinite(count)) {
+        anomalyEl.textContent = count > 0 ? `${count}  🚩 Critical` : String(count);
+        anomalyEl.classList.toggle("critical", count > 0);
+      } else {
+        anomalyEl.textContent = "—";
+        anomalyEl.classList.remove("critical");
+      }
     }
 
     function renderTable(rows, anomalies) {
@@ -447,8 +571,10 @@
         const desc = r.description || r.Description || r.merchant || "";
         const amount = r.amount ?? r.Amount ?? "";
         const cat = r.category || r.Category || "";
-        const cls = isAnomaly(r, anomalies) ? ' class="anomaly"' : "";
-        return `<tr${cls}><td>${date}</td><td>${desc}</td><td>${money(amount)}</td><td>${cat}</td></tr>`;
+        const flagged = isAnomaly(r, anomalies);
+        const cls = flagged ? ' class="anomaly"' : "";
+        const amountText = flagged ? `${money(amount)} 🚩` : money(amount);
+        return `<tr${cls}><td>${date}</td><td>${desc}</td><td>${amountText}</td><td>${categoryMarkup(cat)}</td></tr>`;
       }).join("");
     }
 
@@ -471,14 +597,17 @@
           datasets: [{
             label: "Spend",
             data: values,
-            backgroundColor: "#1a2744",
+            backgroundColor: labels.map((name) => categoryColor(name)),
             borderRadius: 6
           }]
         },
         options: {
           responsive: true,
           plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true } }
+          scales: {
+            x: { ticks: { color: chartTick }, grid: { color: chartGrid } },
+            y: { beginAtZero: true, ticks: { color: chartTick }, grid: { color: chartGrid } }
+          }
         }
       });
     }
@@ -518,33 +647,36 @@
             {
               label: "Actual",
               data: actualSeries,
-              borderColor: "#1a2744",
-              backgroundColor: "rgba(26,39,68,0.08)",
+              borderColor: "#5eead4",
+              backgroundColor: "rgba(94,234,212,0.08)",
               tension: 0.25,
               spanGaps: false,
               showLine: n > 1,
               pointRadius: 5,
               pointHoverRadius: 7,
               pointHitRadius: 10,
-              pointBackgroundColor: "#1a2744",
-              pointBorderColor: "#1a2744"
+              pointBackgroundColor: "#5eead4",
+              pointBorderColor: "#5eead4"
             },
             {
               label: "Predicted",
               data: dashedSeries,
-              borderColor: "#7fd99a",
+              borderColor: "rgba(94,234,212,0.45)",
               borderDash: [6, 4],
               tension: 0.25,
               pointRadius: 5,
               pointHoverRadius: 7,
-              pointBackgroundColor: "#7fd99a"
+              pointBackgroundColor: "rgba(167,243,232,0.85)"
             }
           ]
         },
         options: {
           responsive: true,
-          plugins: { legend: { display: true } },
-          scales: { y: { beginAtZero: true } }
+          plugins: { legend: { display: true, labels: { color: chartTick } } },
+          scales: {
+            x: { ticks: { color: chartTick }, grid: { color: chartGrid } },
+            y: { beginAtZero: true, ticks: { color: chartTick }, grid: { color: chartGrid } }
+          }
         }
       });
     }
@@ -579,14 +711,21 @@
       root.innerHTML = entries.map(([category, row]) => {
         const budgetAmt = Number(row.budget);
         const actualAmt = Number(row.actual);
-        const over = row.status === "over";
-        const pct = budgetAmt > 0 ? Math.min((actualAmt / budgetAmt) * 100, 100) : 0;
+        const over = row.status === "over" || (budgetAmt > 0 && actualAmt > budgetAmt);
+        const scale = Math.max(budgetAmt, actualAmt, 0);
+        const actualPct = scale > 0 ? (actualAmt / scale) * 100 : 0;
+        const budgetPct = scale > 0 ? (budgetAmt / scale) * 100 : 0;
+        const overflowPct = over ? Math.max(0, actualPct - budgetPct) : 0;
+        const color = categoryColor(category);
+        const overflow = overflowPct > 0
+          ? `<div class="budget-overflow" style="left:${budgetPct}%;width:${overflowPct}%"></div>`
+          : "";
         return `<div class="budget-row">
-          <div>${category}</div>
-          <div class="budget-track"><div class="budget-fill${over ? " over" : ""}" style="width:${pct}%"></div></div>
-          <div class="budget-meta">
-            Actual ${money(actualAmt)} / Budget ${money(budgetAmt)}
-            <span class="budget-status ${over ? "over" : "under"}">${over ? "Over" : "Under"}</span>
+          <div>${categoryMarkup(category)}</div>
+          <div class="budget-track">
+            <div class="budget-fill" style="--cat-color:${color};background:${color};width:${actualPct}%"></div>
+            ${overflow}
+            <div class="budget-meta">${money(actualAmt)}/${money(budgetAmt)} Budget</div>
           </div>
         </div>`;
       }).join("");
@@ -598,15 +737,24 @@
       fillBudgetInputs(await res.json());
     }
 
-    document.getElementById("uploadForm").addEventListener("submit", async (e) => {
+    const uploadForm = document.getElementById("uploadForm");
+    const fileInput = document.getElementById("fileInput");
+    const uploadBtn = document.getElementById("uploadBtn");
+
+    uploadBtn.addEventListener("click", () => fileInput.click());
+
+    fileInput.addEventListener("change", () => {
+      if (fileInput.files[0]) uploadForm.requestSubmit();
+    });
+
+    uploadForm.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const file = document.getElementById("fileInput").files[0];
+      const file = fileInput.files[0];
       if (!file) {
         setStatus("Choose a CSV or Excel file first.", true);
         return;
       }
-      const btn = document.getElementById("uploadBtn");
-      btn.disabled = true;
+      uploadBtn.disabled = true;
       setStatus("Uploading statement…");
       try {
         const form = new FormData();
@@ -621,7 +769,8 @@
       } catch (err) {
         setStatus(err.message || "Upload failed.", true);
       } finally {
-        btn.disabled = false;
+        uploadBtn.disabled = false;
+        fileInput.value = "";
       }
     });
 

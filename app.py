@@ -1,4 +1,5 @@
 import io
+import re
 from collections import defaultdict
 from datetime import datetime
 
@@ -8,6 +9,12 @@ from flask import Flask, jsonify, render_template, request
 app = Flask(__name__)
 
 REQUIRED_COLUMNS = {"date", "description", "amount"}
+UPI_DETECT_COLUMNS = {"sender", "receiver"}
+UNSUPPORTED_FILE_COLUMNS_MSG = (
+    "Uploaded file is missing required columns. Expected either "
+    "(Date, Description, Amount) or a supported UPI statement format."
+)
+PAREN_NAME_RE = re.compile(r"\(([^)]*)\)")
 
 CATEGORY_KEYWORDS = {
     "Food": ["swiggy", "zomato", "restaurant", "cafe", "food", "dominos", "starbucks"],
@@ -48,12 +55,12 @@ def categorize(description):
     return "Other"
 
 
-def normalize_date(value):
+def normalize_date(value, dayfirst=False):
     if pd.isna(value):
         raise ValueError("date is missing in one or more rows")
     if isinstance(value, datetime):
         return value.strftime("%Y-%m-%d")
-    parsed = pd.to_datetime(value, errors="coerce", dayfirst=False)
+    parsed = pd.to_datetime(value, errors="coerce", dayfirst=dayfirst)
     if pd.isna(parsed):
         raise ValueError(f"Could not parse date: {value!r}")
     return parsed.strftime("%Y-%m-%d")
@@ -69,13 +76,86 @@ def normalize_amount(value):
     return round(amount, 2)
 
 
-def build_transaction(row):
+def build_transaction(row, dayfirst=False):
     return {
-        "date": normalize_date(row["date"]),
+        "date": normalize_date(row["date"], dayfirst=dayfirst),
         "description": str(row["description"]).strip(),
         "amount": normalize_amount(row["amount"]),
         "category": categorize(row["description"]),
     }
+
+
+def _normalize_headers(df):
+    df = df.copy()
+    df.columns = [" ".join(str(col).strip().lower().split()) for col in df.columns]
+    return df
+
+
+def is_upi_statement(columns):
+    cols = {str(col) for col in columns}
+    compact = {col.replace(" ", "") for col in cols}
+    return UPI_DETECT_COLUMNS.issubset(cols) and "dr/cr" in compact
+
+
+def _column_named(columns, *candidates):
+    compact_map = {col.replace(" ", ""): col for col in columns}
+    for name in candidates:
+        key = name.replace(" ", "")
+        if key in compact_map:
+            return compact_map[key]
+    return None
+
+
+def extract_merchant_name(receiver):
+    if receiver is None or (isinstance(receiver, float) and pd.isna(receiver)):
+        return "UPI Transaction"
+    text = str(receiver).strip()
+    if not text or text.lower() in {"nan", "none"}:
+        return "UPI Transaction"
+    matches = PAREN_NAME_RE.findall(text)
+    if not matches:
+        return "UPI Transaction"
+    name = matches[-1].strip()
+    if not name or not re.search(r"[A-Za-z0-9]", name):
+        return "UPI Transaction"
+    return name
+
+
+def _cell_text(value):
+    if value is None or (isinstance(value, float) and pd.isna(value)):
+        return ""
+    return str(value).strip()
+
+
+def map_upi_statement(df):
+    date_col = _column_named(df.columns, "date")
+    receiver_col = _column_named(df.columns, "receiver")
+    dr_col = _column_named(df.columns, "dr/cr")
+    status_col = _column_named(df.columns, "status")
+    amount_col = _column_named(df.columns, "amount (in rs.)", "amount (in rs)")
+    if amount_col is None:
+        for col in df.columns:
+            compact = col.replace(" ", "")
+            if compact.startswith("amount") and "rs" in compact:
+                amount_col = col
+                break
+    if not all([date_col, receiver_col, dr_col, status_col, amount_col]):
+        raise ValueError(UNSUPPORTED_FILE_COLUMNS_MSG)
+
+    mapped = []
+    for _, row in df.iterrows():
+        if _cell_text(row[dr_col]).upper() != "DR":
+            continue
+        if _cell_text(row[status_col]).upper() != "SUCCESS":
+            continue
+        mapped.append(
+            {
+                "date": row[date_col],
+                "description": extract_merchant_name(row[receiver_col]),
+                "amount": row[amount_col],
+            }
+        )
+    return mapped
 
 
 def load_sample_transactions():
@@ -104,20 +184,22 @@ def parse_upload(file_storage):
     else:
         raise ValueError("Unsupported file type. Upload a .csv or .xlsx file.")
 
-    df.columns = [str(col).strip().lower() for col in df.columns]
-    missing = REQUIRED_COLUMNS - set(df.columns)
-    if missing:
-        needed = ", ".join(sorted(REQUIRED_COLUMNS))
-        missing_list = ", ".join(sorted(missing))
-        raise ValueError(
-            f"Uploaded file is missing required column(s): {missing_list}. "
-            f"Expected columns: {needed}."
-        )
+    df = _normalize_headers(df)
+    upi_format = is_upi_statement(df.columns)
+    if upi_format:
+        source_rows = map_upi_statement(df)
+        dayfirst = True
+    else:
+        missing = REQUIRED_COLUMNS - set(df.columns)
+        if missing:
+            raise ValueError(UNSUPPORTED_FILE_COLUMNS_MSG)
+        source_rows = df.to_dict(orient="records")
+        dayfirst = False
 
     parsed = []
-    for index, row in df.iterrows():
+    for index, row in enumerate(source_rows):
         try:
-            parsed.append(build_transaction(row))
+            parsed.append(build_transaction(row, dayfirst=dayfirst))
         except ValueError as exc:
             raise ValueError(f"Row {index + 2}: {exc}") from exc
     return parsed
